@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { db, ensureSchema } from "../../../lib/db";
 import { requireAdmin } from "../../../lib/auth";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   await ensureSchema();
   const result = await db().execute("SELECT p.*, c.name AS category FROM products p LEFT JOIN categories c ON c.id = p.category_id ORDER BY p.created_at DESC");
