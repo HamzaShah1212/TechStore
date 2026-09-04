@@ -1,91 +1,56 @@
-"use client";
+{tab === "Orders" ? (
+  <div className="min-w-[700px] divide-y divide-slate-100">
+    {records.map((item) => (
+      <div key={item.id} className="grid grid-cols-5 items-center gap-4 p-4 text-sm">
+        {/* Product Image & Details */}
+        <div className="flex items-center gap-3 col-span-2">
+          {item.image_url ? (
+            <img src={item.image_url} alt="Product" className="h-12 w-12 rounded object-cover border" />
+          ) : (
+            <div className="h-12 w-12 rounded bg-slate-100 grid place-items-center font-bold text-slate-400">P</div>
+          )}
+          <div>
+            <strong className="block text-slate-900">{item.customer_name}</strong>
+            <span className="text-xs text-slate-500">{item.items}</span>
+          </div>
+        </div>
 
-import { useEffect, useState } from "react";
-import { Admin } from "../page";
+        {/* Total Price */}
+        <div>
+          <span className="block text-xs text-slate-400">Total Price</span>
+          <strong className="font-serif text-base">${Number(item.total_amount || 0).toLocaleString()}</strong>
+        </div>
 
-export default function AdminRoute() {
-  const [authorized, setAuthorized] = useState(null);
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [notice, setNotice] = useState("");
+        {/* Address */}
+        <span className="text-xs text-slate-500 truncate">{item.shipping_address}</span>
 
-  const refresh = async () => {
-    try {
-      const [p, c, u] = await Promise.all([
-        fetch("/api/products", { cache: "no-store" }).then((r) => r.json()),
-        fetch("/api/categories", { cache: "no-store" }).then((r) => r.json()),
-        fetch("/api/users", { cache: "no-store" }).then((r) => (r.ok ? r.json() : []))
-      ]);
-      setProducts(p);
-      setCategories(c);
-      setUsers(u);
-    } catch (error) {
-      console.error("Failed to refresh admin data:", error);
-    }
-  };
-
-  const notify = (text) => {
-    setNotice(text);
-    window.setTimeout(() => setNotice(""), 2400);
-  };
-
-  useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((session) => {
-        setAuthorized(session.admin === true);
-        if (session.admin) refresh();
-      });
-  }, []);
-
-  const login = async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: form.get("email"), password: form.get("password") })
-    });
-    if (response.ok) {
-      setAuthorized(true);
-      setLoginOpen(false);
-      refresh();
-    } else {
-      setNotice("Invalid admin credentials");
-    }
-  };
-
-  const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    setAuthorized(false);
-    notify("Logged out");
-  };
-
-  if (authorized === null) {
-    return <main className="grid min-h-screen place-items-center bg-stone-50">Checking admin session...</main>;
-  }
-
-  if (!authorized || loginOpen) {
-    return (
-      <main className="grid min-h-screen place-items-center bg-stone-50 p-5">
-        <form onSubmit={login} className="w-full max-w-md rounded-xl bg-white p-8 shadow-xl">
-          <p className="text-xs font-bold uppercase tracking-[.25em] text-lime-700">Private workspace</p>
-          <h1 className="mt-3 font-serif text-4xl">Admin sign in</h1>
-          <input name="email" required type="email" placeholder="Email" className="mt-8 w-full rounded border border-slate-300 p-3" />
-          <input name="password" required type="password" placeholder="Password" className="mt-3 w-full rounded border border-slate-300 p-3" />
-          <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">Sign in</button>
-          <a href="/" className="mt-4 block text-center text-sm text-slate-500">Back to store</a>
-        </form>
-        {notice && <p className="fixed bottom-5 right-5 bg-slate-900 px-4 py-3 text-white">{notice}</p>}
-      </main>
-    );
-  }
-
-  return (
-    <main className="min-h-screen bg-stone-50">
-      <Admin products={products} categories={categories} users={users} logout={logout} notify={notify} refresh={refresh} />
-    </main>
-  );
-}
+        {/* Status Dropdown */}
+        <div>
+          <select
+            value={item.status || "Pending"}
+            onChange={async (e) => {
+              const newStatus = e.target.value;
+              const res = await fetch("/api/orders", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: item.id, status: newStatus }),
+              });
+              if (res.ok) {
+                setRecords(records.map((r) => (r.id === item.id ? { ...r, status: newStatus } : r)));
+              }
+            }}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+              item.status === "Confirmed" ? "border-green-300 bg-green-50 text-green-700" : "border-yellow-300 bg-yellow-50 text-yellow-700"
+            }`}
+          >
+            <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
+          </select>
+        </div>
+      </div>
+    ))}
+  </div>
+) : (
+  /* Existing Table mapping for Products, Categories, Users */
+  null
+)}
