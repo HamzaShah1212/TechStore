@@ -10,6 +10,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -40,6 +41,7 @@ export default function Home() {
             Mobi<span className="text-lime-700">Kiosk</span>
           </a>
 
+          {/* Desktop Search & Filter */}
           <div className="hidden items-center gap-2 md:flex">
             <input
               value={query}
@@ -54,20 +56,64 @@ export default function Home() {
             >
               <option value="">All categories</option>
               {categories.map((item) => (
-                <option key={item.id}>{item.name}</option>
+                <option key={item.id} value={item.name}>{item.name}</option>
               ))}
             </select>
           </div>
 
-          <nav className="flex items-center gap-4 text-sm"><a href="/" className="border-b-2 border-slate-900 py-1 font-bold">Store</a><a href="/admin" className="py-1 text-slate-500 transition-all hover:text-slate-900">Admin</a></nav>
+          <nav className="hidden items-center gap-4 text-sm md:flex">
+            <a href="/" className="border-b-2 border-slate-900 py-1 font-bold">Store</a>
+            <a href="/admin" className="py-1 text-slate-500 transition-all hover:text-slate-900">Admin</a>
+          </nav>
+
+          {/* Mobile Hamburger Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="grid h-10 w-10 place-items-center rounded-lg border border-slate-300 bg-white text-slate-700 md:hidden"
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <span className="text-xl font-bold">✕</span>
+            ) : (
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        {mobileMenuOpen && (
+          <div className="border-t border-slate-200 bg-stone-50 px-5 py-4 md:hidden">
+            <div className="flex flex-col gap-3">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search products"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              />
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">All categories</option>
+                {categories.map((item) => (
+                  <option key={item.id} value={item.name}>{item.name}</option>
+                ))}
+              </select>
+              <div className="mt-2 flex gap-4 border-t border-slate-200 pt-3 text-sm">
+                <a href="/" className="font-bold text-slate-900">Store</a>
+                <a href="/admin" className="text-slate-500">Admin</a>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <Store products={pageProducts} page={page} pageCount={pageCount} setPage={setPage} />
 
       <Footer />
-
-
     </main>
   );
 }
@@ -133,13 +179,45 @@ function Store({ products, page, pageCount, setPage }) {
           ))}
         </div>
 
-        {pageCount > 1 && <div className="mt-10 flex items-center justify-center gap-3"><button disabled={page === 1} onClick={() => setPage(page - 1)} className="rounded border border-slate-300 bg-white px-4 py-2 text-sm disabled:opacity-40">Previous</button><span className="text-sm text-slate-500">Page {page} of {pageCount}</span><button disabled={page === pageCount} onClick={() => setPage(page + 1)} className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40">Next</button></div>}
+        {pageCount > 1 && (
+          <div className="mt-10 flex items-center justify-center gap-3">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
+              className="rounded border border-slate-300 bg-white px-4 py-2 text-sm disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-slate-500">
+              Page {page} of {pageCount}
+            </span>
+            <button
+              disabled={page === pageCount}
+              onClick={() => setPage(page + 1)}
+              className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </section>
     </>
   );
 }
 
-function Footer() { return <footer className="border-t border-slate-200 bg-white px-5 py-10"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 text-sm text-slate-500 sm:flex-row"><strong className="text-slate-900">Mobi<span className="text-lime-700">Kiosk</span></strong><span>Premium devices, honestly chosen.</span><span>© 2026 MobiKiosk</span></div></footer>; }
+function Footer() {
+  return (
+    <footer className="border-t border-slate-200 bg-white px-5 py-10">
+      <div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 text-sm text-slate-500 sm:flex-row">
+        <strong className="text-slate-900">
+          Mobi<span className="text-lime-700">Kiosk</span>
+        </strong>
+        <span>Premium devices, honestly chosen.</span>
+        <span>© 2026 MobiKiosk</span>
+      </div>
+    </footer>
+  );
+}
 
 export function Admin({ products, categories, users, logout, notify, refresh }) {
   const [tab, setTab] = useState("Products");
@@ -149,8 +227,15 @@ export function Admin({ products, categories, users, logout, notify, refresh }) 
 
   const remove = async (type, id) => {
     if (!window.confirm(`Delete this ${type}?`)) return;
-    const response = await fetch(`/api/${type}s`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    if (response.ok) { await refresh(); notify(`${type} deleted`); }
+    const response = await fetch(`/api/${type}s`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (response.ok) {
+      await refresh();
+      notify(`${type} deleted`);
+    }
   };
 
   useEffect(() => {
@@ -206,9 +291,30 @@ export function Admin({ products, categories, users, logout, notify, refresh }) 
             {item}
           </button>
         ))}
-        {tab === "Products" && <button onClick={() => setCreating("product")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white">+ Add product</button>}
-        {tab === "Categories" && <button onClick={() => setCreating("category")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white">+ Add category</button>}
-        {tab === "Users" && <button onClick={() => setCreating("user")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white">+ Add user</button>}
+        {tab === "Products" && (
+          <button
+            onClick={() => setCreating("product")}
+            className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white"
+          >
+            + Add product
+          </button>
+        )}
+        {tab === "Categories" && (
+          <button
+            onClick={() => setCreating("category")}
+            className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white"
+          >
+            + Add category
+          </button>
+        )}
+        {tab === "Users" && (
+          <button
+            onClick={() => setCreating("user")}
+            className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white"
+          >
+            + Add user
+          </button>
+        )}
       </div>
 
       <div className="mt-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -232,84 +338,164 @@ export function Admin({ products, categories, users, logout, notify, refresh }) 
                   item.price ||
                   item.message}
               </span>
-              {tab === "Products" && <span className="flex gap-2"><button onClick={() => setEditing({ type: "product", item })} className="text-lime-700">Edit</button><button onClick={() => remove("product", item.id)} className="text-red-600">Delete</button></span>}
-              {tab === "Categories" && <span className="flex gap-2"><button onClick={() => setEditing({ type: "category", item })} className="text-lime-700">Edit</button><button onClick={() => remove("categorie", item.id)} className="text-red-600">Delete</button></span>}
+              {tab === "Products" && (
+                <span className="flex gap-2">
+                  <button onClick={() => setEditing({ type: "product", item })} className="text-lime-700">Edit</button>
+                  <button onClick={() => remove("product", item.id)} className="text-red-600">Delete</button>
+                </span>
+              )}
+              {tab === "Categories" && (
+                <span className="flex gap-2">
+                  <button onClick={() => setEditing({ type: "category", item })} className="text-lime-700">Edit</button>
+                  <button onClick={() => remove("categorie", item.id)} className="text-red-600">Delete</button>
+                </span>
+              )}
             </div>
           ))}
         </div>
-      </div>{creating && <CreateModal type={creating} categories={categories} close={() => setCreating(null)} refresh={refresh} notify={notify} />}{editing && <EditModal data={editing} categories={categories} close={() => setEditing(null)} refresh={refresh} notify={notify} />}
+      </div>
+      {creating && <CreateModal type={creating} categories={categories} close={() => setCreating(null)} refresh={refresh} notify={notify} />}
+      {editing && <EditModal data={editing} categories={categories} close={() => setEditing(null)} refresh={refresh} notify={notify} />}
     </section>
   );
 }
 
-function Login({ close, success }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function CreateModal({ type, categories, close, refresh, notify }) {
+  const [form, setForm] = useState(
+    type === "product"
+      ? { title: "", price: "", stock: 0, category_id: categories[0]?.id || "", image: null }
+      : type === "category"
+      ? { name: "", description: "" }
+      : { username: "", email: "", password: "", address: "" }
+  );
 
-  const submit = async (event) => {
+  const save = async (event) => {
     event.preventDefault();
-    const response = await fetch("/api/auth/login", {
+    let payload = { ...form };
+    if (type === "product" && form.image) {
+      const data = new FormData();
+      data.append("image", form.image);
+      const upload = await fetch("/api/uploads", { method: "POST", body: data });
+      if (!upload.ok) return notify("Image upload failed");
+      payload.image_url = (await upload.json()).url;
+      delete payload.image;
+    }
+    const endpoint =
+      type === "product"
+        ? "/api/products"
+        : type === "category"
+        ? "/api/categories"
+        : "/api/users";
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(payload),
     });
-    if (response.ok) success();
+    if (response.ok) {
+      await refresh();
+      close();
+      notify(`${type} added`);
+    } else notify("Could not save record");
   };
 
   return (
     <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/60 p-5">
-      <form
-        onSubmit={submit}
-        className="relative w-full max-w-md rounded-xl bg-white p-7 shadow-2xl"
-      >
-        <button
-          type="button"
-          onClick={close}
-          className="absolute right-4 top-3 text-2xl"
-        >
-          ×
-        </button>
-        <h2 className="font-serif text-3xl">Admin sign in</h2>
-        <input
-          required
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="mt-6 w-full rounded border p-3"
-        />
-        <input
-          required
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-3 w-full rounded border p-3"
-        />
-        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">
-          Sign in
-        </button>
+      <form onSubmit={save} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <h2 className="font-serif text-3xl">Add {type}</h2>
+          <button type="button" onClick={close} className="text-2xl">×</button>
+        </div>
+        {type === "product" && (
+          <>
+            <input required placeholder="Product name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3" />
+            <input required type="number" placeholder="Price" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3" />
+            <input required type="number" placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3" />
+            <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3">
+              {categories.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+            </select>
+            <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-3 w-full rounded border p-3" />
+          </>
+        )}
+        {type === "category" && (
+          <>
+            <input required placeholder="Category name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3" />
+            <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3" />
+          </>
+        )}
+        {type === "user" && (
+          <>
+            <input required placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="mt-6 w-full rounded border p-3" />
+            <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-3 w-full rounded border p-3" />
+            <input required type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-3 w-full rounded border p-3" />
+            <input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-3 w-full rounded border p-3" />
+          </>
+        )}
+        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">Save</button>
       </form>
     </div>
   );
 }
 
-function CreateModal({ type, categories, close, refresh, notify }) {
-  const [form, setForm] = useState(type === "product" ? { title: "", price: "", stock: 0, category_id: categories[0]?.id || "", image: null } : type === "category" ? { name: "", description: "" } : { username: "", email: "", password: "", address: "" });
-  const save = async (event) => { event.preventDefault(); let payload = { ...form }; if (type === "product" && form.image) { const data = new FormData(); data.append("image", form.image); const upload = await fetch("/api/uploads", { method: "POST", body: data }); if (!upload.ok) return notify("Image upload failed"); payload.image_url = (await upload.json()).url; delete payload.image; } const endpoint = type === "product" ? "/api/products" : type === "category" ? "/api/categories" : "/api/users"; const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if (response.ok) { await refresh(); close(); notify(`${type} added`); } else notify("Could not save record"); };
-  return <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/60 p-5"><form onSubmit={save} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl"><div className="flex items-center justify-between"><h2 className="font-serif text-3xl">Add {type}</h2><button type="button" onClick={close} className="text-2xl">×</button></div>{type === "product" && <><input required placeholder="Product name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3" /><input required type="number" placeholder="Price" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3" /><input required type="number" placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3" /><select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3">{categories.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select><input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-3 w-full rounded border p-3" /></>}{type === "category" && <><input required placeholder="Category name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3" /><textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3" /></>}{type === "user" && <><input required placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="mt-6 w-full rounded border p-3" /><input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-3 w-full rounded border p-3" /><input required type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-3 w-full rounded border p-3" /><input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-3 w-full rounded border p-3" /></>}<button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">Save</button></form></div>;
-}
-
 function EditModal({ data, categories, close, refresh, notify }) {
   const isProduct = data.type === "product";
-  const [form, setForm] = useState(isProduct ? { title: data.item.title, price: data.item.price, stock: data.item.stock, category_id: categories.find((item) => item.name === data.item.category)?.id || "", image_url: data.item.image_url || "", image: null } : { name: data.item.name, description: data.item.description || "" });
+  const [form, setForm] = useState(
+    isProduct
+      ? { title: data.item.title, price: data.item.price, stock: data.item.stock, category_id: categories.find((item) => item.name === data.item.category)?.id || "", image_url: data.item.image_url || "", image: null }
+      : { name: data.item.name, description: data.item.description || "" }
+  );
+
   const save = async (event) => {
     event.preventDefault();
     let image_url = form.image_url;
-    if (isProduct && form.image) { const uploadData = new FormData(); uploadData.append("image", form.image); const upload = await fetch("/api/uploads", { method: "POST", body: uploadData }); if (!upload.ok) { notify("Image upload failed"); return; } image_url = (await upload.json()).url; }
+    if (isProduct && form.image) {
+      const uploadData = new FormData();
+      uploadData.append("image", form.image);
+      const upload = await fetch("/api/uploads", { method: "POST", body: uploadData });
+      if (!upload.ok) { notify("Image upload failed"); return; }
+      image_url = (await upload.json()).url;
+    }
     const payload = isProduct ? { id: data.item.id, ...form, image_url } : { id: data.item.id, ...form };
-    const response = await fetch(isProduct ? "/api/products" : "/api/categories", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { await refresh(); close(); notify("Record updated"); }
+    const response = await fetch(isProduct ? "/api/products" : "/api/categories", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (response.ok) {
+      await refresh();
+      close();
+      notify("Record updated");
+    }
   };
-  return <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/60 p-5"><form onSubmit={save} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl"><div className="flex items-center justify-between"><h2 className="font-serif text-3xl">Edit {isProduct ? "product" : "category"}</h2><button type="button" onClick={close} className="text-2xl">×</button></div>{isProduct ? <><input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3" /><label className="mt-3 block text-sm text-slate-500">Product image<input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-1 w-full rounded border p-3 text-sm" /></label>{form.image_url && <img src={form.image_url} alt="Current product" className="mt-3 h-24 w-24 rounded object-cover" />}<input required type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3" /><input required type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3" /><select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3">{categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></> : <><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3" /><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3" /></>}<button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">Save changes</button></form></div>;
+
+  return (
+    <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/60 p-5">
+      <form onSubmit={save} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <h2 className="font-serif text-3xl">Edit {isProduct ? "product" : "category"}</h2>
+          <button type="button" onClick={close} className="text-2xl">×</button>
+        </div>
+        {isProduct ? (
+          <>
+            <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3" />
+            <label className="mt-3 block text-sm text-slate-500">
+              Product image
+              <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-1 w-full rounded border p-3 text-sm" />
+            </label>
+            {form.image_url && <img src={form.image_url} alt="Current product" className="mt-3 h-24 w-24 rounded object-cover" />}
+            <input required type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3" />
+            <input required type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3" />
+            <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3">
+              {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </>
+        ) : (
+          <>
+            <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3" />
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3" />
+          </>
+        )}
+        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">Save changes</button>
+      </form>
+    </div>
+  );
 }
