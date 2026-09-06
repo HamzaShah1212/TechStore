@@ -193,14 +193,14 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
 
       <div className="mt-8 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {tab === "Orders" ? (
-          <div className="min-w-[700px] divide-y divide-slate-100">
+          <div className="min-w-[750px] divide-y divide-slate-100">
             {records.length === 0 ? (
               <p className="p-6 text-center text-sm text-slate-500">No orders found.</p>
             ) : (
               records.map((item) => {
                 const currentStatus = item.status ? item.status.toLowerCase() : "pending";
                 return (
-                  <div key={item.id} className="grid grid-cols-5 items-center gap-4 p-4 text-sm">
+                  <div key={item.id} className="grid grid-cols-6 items-center gap-4 p-4 text-sm">
                     <div className="col-span-2 flex items-center gap-3">
                       {item.image_url ? (
                         <img src={item.image_url} alt="Product" className="h-12 w-12 rounded border object-cover bg-slate-50" />
@@ -212,6 +212,13 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
                         <span className="text-xs text-slate-500">{item.items}</span>
                         <span className="block text-[11px] text-slate-400">Ph: {item.customer_phone}</span>
                       </div>
+                    </div>
+
+                    <div>
+                      <span className="block text-xs text-slate-400">Quantity</span>
+                      <strong className="text-sm font-semibold text-slate-800">
+                        {item.total_quantity || 1} {Number(item.total_quantity || 1) > 1 ? "items" : "item"}
+                      </strong>
                     </div>
 
                     <div>
