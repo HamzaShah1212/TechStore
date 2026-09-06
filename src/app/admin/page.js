@@ -77,8 +77,16 @@ export default function AdminPage() {
           <h1 className="mt-3 font-serif text-4xl">Admin sign in</h1>
           <input name="email" required type="email" placeholder="Email" className="mt-8 w-full rounded border border-slate-300 p-3" />
           <input name="password" required type="password" placeholder="Password" className="mt-3 w-full rounded border border-slate-300 p-3" />
-          <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded">Sign in</button>
-          <a href="/" className="mt-4 block text-center text-sm text-slate-500">Back to store</a>
+          <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded hover:bg-slate-800 transition">
+            Sign in
+          </button>
+          
+          <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-xs">
+            <a href="/" target="_blank" rel="noreferrer" className="font-semibold text-lime-700 hover:underline">
+              🌐 View Store Front →
+            </a>
+            <a href="/" className="text-slate-500 hover:text-slate-800">Back to store home</a>
+          </div>
         </form>
         {notice && <p className="fixed bottom-5 right-5 rounded bg-slate-900 px-4 py-3 text-white shadow-lg">{notice}</p>}
       </main>
@@ -96,6 +104,7 @@ export default function AdminPage() {
 function Admin({ products, categories, users, logout, notify, refresh }) {
   const [tab, setTab] = useState("Products");
   const [records, setRecords] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(null);
 
@@ -122,6 +131,7 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
   };
 
   useEffect(() => {
+    setSearchQuery("");
     fetchTabRecords();
   }, [tab]);
 
@@ -141,7 +151,7 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
     }
   };
 
-  const data =
+  const rawData =
     tab === "Products"
       ? products
       : tab === "Categories"
@@ -150,54 +160,103 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
       ? users
       : records;
 
+  // Search filtering logic
+  const filteredData = rawData.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    
+    return (
+      (item.title && item.title.toLowerCase().includes(query)) ||
+      (item.name && item.name.toLowerCase().includes(query)) ||
+      (item.username && item.username.toLowerCase().includes(query)) ||
+      (item.customer_name && item.customer_name.toLowerCase().includes(query)) ||
+      (item.email && item.email.toLowerCase().includes(query)) ||
+      (item.customer_phone && item.customer_phone.toLowerCase().includes(query)) ||
+      (item.shipping_address && item.shipping_address.toLowerCase().includes(query)) ||
+      (item.category && item.category.toLowerCase().includes(query)) ||
+      (item.items && item.items.toLowerCase().includes(query)) ||
+      (item.status && item.status.toLowerCase().includes(query)) ||
+      (item.id && String(item.id).includes(query))
+    );
+  });
+
   return (
     <section className="mx-auto max-w-7xl px-5 py-12">
-      <div className="flex items-end justify-between border-b border-slate-200 pb-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-200 pb-8 gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.25em] text-lime-700">Private workspace</p>
           <h1 className="mt-2 font-serif text-5xl">Admin panel</h1>
         </div>
-        <button onClick={logout} className="rounded bg-red-500 px-4 py-2 text-sm font-bold text-white hover:bg-red-600">
-          Log out
-        </button>
-      </div>
-
-      <div className="mt-8 flex flex-wrap items-center gap-2">
-        {tabs.map((item) => (
-          <button
-            key={item}
-            onClick={() => setTab(item)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              tab === item ? "bg-slate-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-            }`}
+        <div className="flex items-center gap-3">
+          <a
+            href="/"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
           >
-            {item}
+            🌐 View Store
+          </a>
+          <button onClick={logout} className="rounded bg-red-500 px-4 py-2 text-sm font-bold text-white hover:bg-red-600 transition">
+            Log out
           </button>
-        ))}
-        {tab === "Products" && (
-          <button onClick={() => setCreating("product")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700">
-            + Add product
-          </button>
-        )}
-        {tab === "Categories" && (
-          <button onClick={() => setCreating("category")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700">
-            + Add category
-          </button>
-        )}
-        {tab === "Users" && (
-          <button onClick={() => setCreating("user")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700">
-            + Add user
-          </button>
-        )}
+        </div>
       </div>
 
-      <div className="mt-8 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* Tabs & Search Controls */}
+      <div className="mt-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {tabs.map((item) => (
+            <button
+              key={item}
+              onClick={() => setTab(item)}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                tab === item ? "bg-slate-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        {/* Dynamic Action Buttons */}
+        <div>
+          {tab === "Products" && (
+            <button onClick={() => setCreating("product")} className="rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700 transition">
+              + Add product
+            </button>
+          )}
+          {tab === "Categories" && (
+            <button onClick={() => setCreating("category")} className="rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700 transition">
+              + Add category
+            </button>
+          )}
+          {tab === "Users" && (
+            <button onClick={() => setCreating("user")} className="rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700 transition">
+              + Add user
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search Input Bar */}
+      <div className="mt-6">
+        <input
+          type="text"
+          placeholder={`Search in ${tab} (by name, email, phone, status, address)...`}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+        />
+      </div>
+
+      {/* Main Data Table View */}
+      <div className="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {tab === "Orders" ? (
           <div className="min-w-[750px] divide-y divide-slate-100">
-            {records.length === 0 ? (
-              <p className="p-6 text-center text-sm text-slate-500">No orders found.</p>
+            {filteredData.length === 0 ? (
+              <p className="p-6 text-center text-sm text-slate-500">No matching orders found.</p>
             ) : (
-              records.map((item) => {
+              filteredData.map((item) => {
                 const currentStatus = item.status ? item.status.toLowerCase() : "pending";
                 return (
                   <div key={item.id} className="grid grid-cols-6 items-center gap-4 p-4 text-sm">
@@ -275,10 +334,10 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
           </div>
         ) : (
           <div className="min-w-[620px] divide-y divide-slate-100">
-            {data.length === 0 ? (
-              <p className="p-6 text-center text-sm text-slate-500">No records found.</p>
+            {filteredData.length === 0 ? (
+              <p className="p-6 text-center text-sm text-slate-500">No matching records found.</p>
             ) : (
-              data.map((item) => (
+              filteredData.map((item) => (
                 <div key={item.id} className="grid grid-cols-4 items-center gap-4 p-4 text-sm">
                   <strong className="text-slate-900 truncate">
                     {item.title || item.name || item.username || item.customer_name}
