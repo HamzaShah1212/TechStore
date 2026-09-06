@@ -195,7 +195,7 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
                 <div>
                   <span className="block text-xs text-slate-400">Total Price</span>
                   <strong className="font-serif text-base text-slate-900">
-                    ${Number(item.total_amount || 0).toLocaleString()}
+                    Rs. {Number(item.total_amount || 0).toLocaleString("en-PK")}
                   </strong>
                 </div>
 
@@ -243,7 +243,13 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
                   {item.email || item.category || item.items || item.subject || item.description}
                 </span>
                 <span className="text-slate-500">
-                  {item.role || item.status || item.customer_phone || (item.price ? `$${item.price}` : null) || item.message}
+                  {item.role ||
+                    item.status ||
+                    item.customer_phone ||
+                    (item.price != null
+                      ? item.price_pkr || `Rs. ${Number(item.price).toLocaleString("en-PK")}`
+                      : null) ||
+                    item.message}
                 </span>
                 {tab === "Products" && (
                   <span className="flex justify-end gap-3 font-semibold">
@@ -254,7 +260,7 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
                 {tab === "Categories" && (
                   <span className="flex justify-end gap-3 font-semibold">
                     <button onClick={() => setEditing({ type: "category", item })} className="text-lime-700 hover:underline">Edit</button>
-                    <button onClick={() => remove("categorie", item.id)} className="text-red-600 hover:underline">Delete</button>
+                    <button onClick={() => remove("categories", item.id)} className="text-red-600 hover:underline">Delete</button>
                   </span>
                 )}
               </div>
@@ -272,7 +278,7 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
 function CreateModal({ type, categories, close, refresh, notify }) {
   const [form, setForm] = useState(
     type === "product"
-      ? { title: "", price: "", stock: 0, category_id: categories[0]?.id || "", image: null }
+      ? { title: "", price: "", stock: 0, category_id: categories[0]?.id || "", images: [] }
       : type === "category"
       ? { name: "", description: "" }
       : { username: "", email: "", password: "", address: "" }
@@ -281,14 +287,23 @@ function CreateModal({ type, categories, close, refresh, notify }) {
   const save = async (event) => {
     event.preventDefault();
     let payload = { ...form };
-    if (type === "product" && form.image) {
-      const data = new FormData();
-      data.append("image", form.image);
-      const upload = await fetch("/api/uploads", { method: "POST", body: data });
-      if (!upload.ok) return notify("Image upload failed");
-      payload.image_url = (await upload.json()).url;
-      delete payload.image;
+
+    // Multiple Images Upload Loop
+    if (type === "product" && form.images?.length > 0) {
+      const uploadedUrls = [];
+      for (const file of form.images) {
+        const data = new FormData();
+        data.append("image", file);
+        const upload = await fetch("/api/uploads", { method: "POST", body: data });
+        if (upload.ok) {
+          const res = await upload.json();
+          uploadedUrls.push(res.url);
+        }
+      }
+      payload.image_urls = uploadedUrls;
+      delete payload.images;
     }
+
     const endpoint = type === "product" ? "/api/products" : type === "category" ? "/api/categories" : "/api/users";
     const response = await fetch(endpoint, {
       method: "POST",
@@ -312,12 +327,15 @@ function CreateModal({ type, categories, close, refresh, notify }) {
         {type === "product" && (
           <>
             <input required placeholder="Product name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
-            <input required type="number" placeholder="Price" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <input required type="number" placeholder="Price (PKR)" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
             <input required type="number" placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
             <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm">
               {categories.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
             </select>
-            <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <label className="mt-3 block text-xs font-semibold text-slate-600">
+              Select Product Images (Multiple Supported)
+              <input type="file" accept="image/*" multiple onChange={(e) => setForm({ ...form, images: Array.from(e.target.files) })} className="mt-1 w-full rounded border p-3 text-sm" />
+            </label>
           </>
         )}
         {type === "category" && (
@@ -344,21 +362,45 @@ function EditModal({ data, categories, close, refresh, notify }) {
   const isProduct = data.type === "product";
   const [form, setForm] = useState(
     isProduct
-      ? { title: data.item.title, price: data.item.price, stock: data.item.stock, category_id: categories.find((item) => item.name === data.item.category)?.id || "", image_url: data.item.image_url || "", image: null }
+      ? {
+          title: data.item.title,
+          price: data.item.price,
+          stock: data.item.stock,
+          category_id: categories.find((item) => item.name === data.item.category)?.id || "",
+          existing_urls: data.item.images || (data.item.image_url ? [data.item.image_url] : []),
+          new_images: [],
+        }
       : { name: data.item.name, description: data.item.description || "" }
   );
 
   const save = async (event) => {
     event.preventDefault();
-    let image_url = form.image_url;
-    if (isProduct && form.image) {
-      const uploadData = new FormData();
-      uploadData.append("image", form.image);
-      const upload = await fetch("/api/uploads", { method: "POST", body: uploadData });
-      if (!upload.ok) { notify("Image upload failed"); return; }
-      image_url = (await upload.json()).url;
+    let finalUrls = [...(form.existing_urls || [])];
+
+    // Upload New Images if selected
+    if (isProduct && form.new_images?.length > 0) {
+      for (const file of form.new_images) {
+        const uploadData = new FormData();
+        uploadData.append("image", file);
+        const upload = await fetch("/api/uploads", { method: "POST", body: uploadData });
+        if (upload.ok) {
+          const res = await upload.json();
+          finalUrls.push(res.url);
+        }
+      }
     }
-    const payload = isProduct ? { id: data.item.id, ...form, image_url } : { id: data.item.id, ...form };
+
+    const payload = isProduct
+      ? {
+          id: data.item.id,
+          title: form.title,
+          price: form.price,
+          stock: form.stock,
+          category_id: form.category_id,
+          image_urls: finalUrls,
+        }
+      : { id: data.item.id, ...form };
+
     const response = await fetch(isProduct ? "/api/products" : "/api/categories", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -381,13 +423,26 @@ function EditModal({ data, categories, close, refresh, notify }) {
         {isProduct ? (
           <>
             <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
-            <label className="mt-3 block text-sm text-slate-500">
-              Product image
-              <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-1 w-full rounded border p-3 text-sm" />
+            
+            {/* Existing Images Preview */}
+            {form.existing_urls?.length > 0 && (
+              <div className="mt-3">
+                <span className="block text-xs font-semibold text-slate-500">Current Images:</span>
+                <div className="mt-1 flex gap-2 overflow-x-auto py-1">
+                  {form.existing_urls.map((url, i) => (
+                    <img key={i} src={url} alt="Current" className="h-16 w-16 rounded border object-cover" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <label className="mt-3 block text-xs font-semibold text-slate-500">
+              Add More Images
+              <input type="file" accept="image/*" multiple onChange={(e) => setForm({ ...form, new_images: Array.from(e.target.files) })} className="mt-1 w-full rounded border p-3 text-sm" />
             </label>
-            {form.image_url && <img src={form.image_url} alt="Current product" className="mt-3 h-20 w-20 rounded border object-cover" />}
-            <input required type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
-            <input required type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+
+            <input required type="number" placeholder="Price in PKR" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <input required type="number" placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
             <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm">
               {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
