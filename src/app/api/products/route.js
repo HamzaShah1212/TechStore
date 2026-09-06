@@ -11,11 +11,9 @@ export async function GET() {
     "SELECT p.*, c.name AS category FROM products p LEFT JOIN categories c ON c.id = p.category_id ORDER BY p.created_at DESC"
   );
 
-  // Images parse karna aur PKR currency format attach karna
   const products = result.rows.map((product) => {
     let images = [];
     try {
-      // Agar array JSON text hai to parse karo, warna single image url ko array bana do
       images = product.image_urls
         ? JSON.parse(product.image_urls)
         : product.image_url
@@ -30,7 +28,6 @@ export async function GET() {
     return {
       ...product,
       price: numericPrice,
-      // PKR formatted string for UI
       price_pkr: `Rs. ${numericPrice.toLocaleString("en-PK")}`,
       images: images,
     };
@@ -51,8 +48,8 @@ export async function POST(request) {
     stock = 0,
     category_id,
     category,
-    image_urls = [], // Expecting an array of image URLs
-    image_url = ""  // Backward compatibility
+    image_urls = [],
+    image_url = ""
   } = await request.json();
 
   if (!title || price == null || (!category_id && !category)) {
@@ -77,7 +74,6 @@ export async function POST(request) {
     resolvedCategoryId = categoryResult.rows[0].id;
   }
 
-  // Multiple images handling
   const finalImages = Array.isArray(image_urls) && image_urls.length > 0
     ? image_urls
     : image_url
@@ -95,7 +91,7 @@ export async function POST(request) {
       Number(stock),
       Number(resolvedCategoryId),
       imagesJson,
-      finalImages[0] || "", // Pehla image main image_url ke taur par backup rahega
+      finalImages[0] || "",
     ],
   });
 

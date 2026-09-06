@@ -11,8 +11,10 @@ export default function AdminPage() {
   const [categories, setCategories] = useState([]);
   const [users, setUsers] = useState([]);
   const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const refresh = async () => {
+    setLoading(true);
     try {
       const [p, c, u] = await Promise.all([
         fetch("/api/products", { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])),
@@ -24,6 +26,8 @@ export default function AdminPage() {
       setUsers(u);
     } catch (error) {
       console.error("Failed to refresh admin data:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -44,12 +48,14 @@ export default function AdminPage() {
 
   const login = async (event) => {
     event.preventDefault();
+    setLoading(true);
     const form = new FormData(event.currentTarget);
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
     });
+    setLoading(false);
     if (response.ok) {
       setAuthorized(true);
       setLoginOpen(false);
@@ -60,7 +66,9 @@ export default function AdminPage() {
   };
 
   const logout = async () => {
+    setLoading(true);
     await fetch("/api/auth/logout", { method: "POST" });
+    setLoading(false);
     setAuthorized(false);
     notify("Logged out");
   };
@@ -77,8 +85,8 @@ export default function AdminPage() {
           <h1 className="mt-3 font-serif text-4xl">Admin sign in</h1>
           <input name="email" required type="email" placeholder="Email" className="mt-8 w-full rounded border border-slate-300 p-3" />
           <input name="password" required type="password" placeholder="Password" className="mt-3 w-full rounded border border-slate-300 p-3" />
-          <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded hover:bg-slate-800 transition">
-            Sign in
+          <button disabled={loading} className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded hover:bg-slate-800 transition disabled:opacity-50">
+            {loading ? "Signing in..." : "Sign in"}
           </button>
           
           <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-xs">
@@ -94,14 +102,23 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-stone-50">
-      <Admin products={products} categories={categories} users={users} logout={logout} notify={notify} refresh={refresh} />
+    <main className="min-h-screen bg-stone-50 relative">
+      <Admin
+        products={products}
+        categories={categories}
+        users={users}
+        logout={logout}
+        notify={notify}
+        refresh={refresh}
+        loading={loading}
+        setLoading={setLoading}
+      />
       {notice && <p className="fixed bottom-5 right-5 z-50 rounded bg-slate-900 px-4 py-3 text-white shadow-lg">{notice}</p>}
     </main>
   );
 }
 
-function Admin({ products, categories, users, logout, notify, refresh }) {
+function Admin({ products, categories, users, logout, notify, refresh, loading, setLoading }) {
   const [tab, setTab] = useState("Products");
   const [records, setRecords] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,6 +133,7 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
         ? "/api/contact"
         : null;
     if (endpoint) {
+      setLoading(true);
       try {
         const r = await fetch(endpoint, { cache: "no-store" });
         if (r.ok) {
@@ -126,6 +144,8 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
         }
       } catch (err) {
         console.error("Error fetching tab records:", err);
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -137,11 +157,13 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
 
   const remove = async (type, id) => {
     if (!window.confirm(`Delete this item?`)) return;
+    setLoading(true);
     const response = await fetch(`/api/${type}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
+    setLoading(false);
     if (response.ok) {
       await refresh();
       await fetchTabRecords();
@@ -160,7 +182,6 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
       ? users
       : records;
 
-  // Search filtering logic
   const filteredData = rawData.filter((item) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -182,6 +203,17 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
 
   return (
     <section className="mx-auto max-w-7xl px-5 py-12">
+      {/* Real-time Loading Indicator / Progress Notification */}
+      {loading && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-xs text-white shadow-xl">
+          <svg className="h-4 w-4 animate-spin text-lime-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Processing request...
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-200 pb-8 gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.25em] text-lime-700">Private workspace</p>
@@ -218,7 +250,6 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
           ))}
         </div>
 
-        {/* Dynamic Action Buttons */}
         <div>
           {tab === "Products" && (
             <button onClick={() => setCreating("product")} className="rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700 transition">
@@ -238,7 +269,6 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
         </div>
       </div>
 
-      {/* Search Input Bar */}
       <div className="mt-6">
         <input
           type="text"
@@ -249,7 +279,6 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
         />
       </div>
 
-      {/* Main Data Table View */}
       <div className="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {tab === "Orders" ? (
           <div className="min-w-[750px] divide-y divide-slate-100">
@@ -297,11 +326,13 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
                         value={currentStatus}
                         onChange={async (e) => {
                           const newStatus = e.target.value;
+                          setLoading(true);
                           const res = await fetch("/api/orders", {
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ id: item.id, status: newStatus }),
                           });
+                          setLoading(false);
                           if (res.ok) {
                             setRecords((prev) =>
                               prev.map((r) => (r.id === item.id ? { ...r, status: newStatus } : r))
@@ -378,13 +409,31 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
         )}
       </div>
 
-      {creating && <CreateModal type={creating} categories={categories} close={() => setCreating(null)} refresh={refresh} notify={notify} />}
-      {editing && <EditModal data={editing} categories={categories} close={() => setEditing(null)} refresh={refresh} notify={notify} />}
+      {creating && (
+        <CreateModal
+          type={creating}
+          categories={categories}
+          close={() => setCreating(null)}
+          refresh={refresh}
+          notify={notify}
+          setLoading={setLoading}
+        />
+      )}
+      {editing && (
+        <EditModal
+          data={editing}
+          categories={categories}
+          close={() => setEditing(null)}
+          refresh={refresh}
+          notify={notify}
+          setLoading={setLoading}
+        />
+      )}
     </section>
   );
 }
 
-function CreateModal({ type, categories, close, refresh, notify }) {
+function CreateModal({ type, categories, close, refresh, notify, setLoading }) {
   const [form, setForm] = useState(
     type === "product"
       ? { title: "", price: "", stock: 0, category_id: categories[0]?.id || "", images: [] }
@@ -395,6 +444,7 @@ function CreateModal({ type, categories, close, refresh, notify }) {
 
   const save = async (event) => {
     event.preventDefault();
+    setLoading(true);
     let payload = { ...form };
 
     if (type === "product" && form.images?.length > 0) {
@@ -418,6 +468,7 @@ function CreateModal({ type, categories, close, refresh, notify }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    setLoading(false);
     if (response.ok) {
       await refresh();
       close();
@@ -460,13 +511,13 @@ function CreateModal({ type, categories, close, refresh, notify }) {
             <input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
           </>
         )}
-        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded">Save</button>
+        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded hover:bg-slate-800 transition">Save</button>
       </form>
     </div>
   );
 }
 
-function EditModal({ data, categories, close, refresh, notify }) {
+function EditModal({ data, categories, close, refresh, notify, setLoading }) {
   const isProduct = data.type === "product";
   const [form, setForm] = useState(
     isProduct
@@ -481,8 +532,23 @@ function EditModal({ data, categories, close, refresh, notify }) {
       : { name: data.item.name, description: data.item.description || "" }
   );
 
+  const removeExistingImage = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      existing_urls: prev.existing_urls.filter((_, i) => i !== index),
+    }));
+  };
+
+  const removeNewImage = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      new_images: prev.new_images.filter((_, i) => i !== index),
+    }));
+  };
+
   const save = async (event) => {
     event.preventDefault();
+    setLoading(true);
     let finalUrls = [...(form.existing_urls || [])];
 
     if (isProduct && form.new_images?.length > 0) {
@@ -513,16 +579,19 @@ function EditModal({ data, categories, close, refresh, notify }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    setLoading(false);
     if (response.ok) {
       await refresh();
       close();
-      notify("Record updated");
+      notify("Record updated successfully");
+    } else {
+      notify("Failed to update record");
     }
   };
 
   return (
     <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/60 p-5">
-      <form onSubmit={save} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl">
+      <form onSubmit={save} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-3xl">Edit {isProduct ? "product" : "category"}</h2>
           <button type="button" onClick={close} className="text-2xl">×</button>
@@ -531,12 +600,44 @@ function EditModal({ data, categories, close, refresh, notify }) {
           <>
             <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
             
+            {/* Existing Images preview with delete options */}
             {form.existing_urls?.length > 0 && (
               <div className="mt-3">
-                <span className="block text-xs font-semibold text-slate-500">Current Images:</span>
-                <div className="mt-1 flex gap-2 overflow-x-auto py-1">
+                <span className="block text-xs font-semibold text-slate-500">Current Images (click ✕ to delete):</span>
+                <div className="mt-2 flex flex-wrap gap-3">
                   {form.existing_urls.map((url, i) => (
-                    <img key={i} src={url} alt="Current" className="h-16 w-16 rounded border object-cover" />
+                    <div key={i} className="relative group">
+                      <img src={url} alt="Current" className="h-16 w-16 rounded border object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(i)}
+                        className="absolute -top-2 -right-2 grid h-5 w-5 place-items-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow hover:bg-red-700"
+                        title="Delete image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* New selected images preview */}
+            {form.new_images?.length > 0 && (
+              <div className="mt-3">
+                <span className="block text-xs font-semibold text-lime-700">Newly Selected Images:</span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {form.new_images.map((file, i) => (
+                    <div key={i} className="flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs">
+                      <span className="max-w-[120px] truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeNewImage(i)}
+                        className="font-bold text-red-600 hover:text-red-800"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -544,7 +645,7 @@ function EditModal({ data, categories, close, refresh, notify }) {
 
             <label className="mt-3 block text-xs font-semibold text-slate-500">
               Add More Images
-              <input type="file" accept="image/*" multiple onChange={(e) => setForm({ ...form, new_images: Array.from(e.target.files) })} className="mt-1 w-full rounded border p-3 text-sm" />
+              <input type="file" accept="image/*" multiple onChange={(e) => setForm({ ...form, new_images: [...form.new_images, ...Array.from(e.target.files)] })} className="mt-1 w-full rounded border p-3 text-sm" />
             </label>
 
             <input required type="number" placeholder="Price in PKR" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
@@ -559,7 +660,7 @@ function EditModal({ data, categories, close, refresh, notify }) {
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3 text-sm" />
           </>
         )}
-        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded">Save changes</button>
+        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded hover:bg-slate-800 transition">Save changes</button>
       </form>
     </div>
   );
