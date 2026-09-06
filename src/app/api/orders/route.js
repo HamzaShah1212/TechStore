@@ -21,7 +21,8 @@ export async function GET(request) {
         o.status,
         o.created_at,
         MAX(p.image_url) AS image_url,
-        GROUP_CONCAT(oi.product_name) AS items
+        GROUP_CONCAT(oi.product_name) AS items,
+        SUM(oi.quantity) AS total_quantity
       FROM orders o
       LEFT JOIN order_items oi ON oi.order_id = o.id
       LEFT JOIN products p ON p.id = oi.product_id
