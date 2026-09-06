@@ -164,9 +164,10 @@ function Store({ products, page, pageCount, setPage }) {
               </div>
               <p className="mt-4 text-xs text-slate-500">{product.category}</p>
               <h3 className="font-semibold">{product.title}</h3>
-              <div className="mt-4 flex justify-between">
-                <strong className="font-serif text-xl">
-                  ${Number(product.price || 0).toLocaleString()}
+              <div className="mt-4 flex items-center justify-between">
+                {/* Updated: Display PKR currency */}
+                <strong className="font-serif text-lg text-slate-900">
+                  Rs. {Number(product.price || 0).toLocaleString("en-PK")}
                 </strong>
                 <span className="text-xs text-lime-700">
                   {product.stock} in stock
@@ -320,7 +321,7 @@ export function Admin({ products, categories, users, logout, notify, refresh }) 
       <div className="mt-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <div className="min-w-[620px] divide-y divide-slate-100">
           {data.map((item) => (
-            <div key={item.id} className="grid grid-cols-3 gap-4 p-4 text-sm">
+            <div key={item.id} className="grid grid-cols-4 gap-4 p-4 text-sm">
               <strong>
                 {item.title || item.name || item.username || item.customer_name}
               </strong>
@@ -335,19 +336,21 @@ export function Admin({ products, categories, users, logout, notify, refresh }) 
                 {item.role ||
                   item.status ||
                   item.customer_phone ||
-                  item.price ||
+                  (item.price != null
+                    ? `Rs. ${Number(item.price).toLocaleString("en-PK")}`
+                    : null) ||
                   item.message}
               </span>
               {tab === "Products" && (
                 <span className="flex gap-2">
-                  <button onClick={() => setEditing({ type: "product", item })} className="text-lime-700">Edit</button>
-                  <button onClick={() => remove("product", item.id)} className="text-red-600">Delete</button>
+                  <button onClick={() => setEditing({ type: "product", item })} className="text-lime-700 font-semibold">Edit</button>
+                  <button onClick={() => remove("product", item.id)} className="text-red-600 font-semibold">Delete</button>
                 </span>
               )}
               {tab === "Categories" && (
                 <span className="flex gap-2">
-                  <button onClick={() => setEditing({ type: "category", item })} className="text-lime-700">Edit</button>
-                  <button onClick={() => remove("categorie", item.id)} className="text-red-600">Delete</button>
+                  <button onClick={() => setEditing({ type: "category", item })} className="text-lime-700 font-semibold">Edit</button>
+                  <button onClick={() => remove("categories", item.id)} className="text-red-600 font-semibold">Delete</button>
                 </span>
               )}
             </div>
@@ -407,30 +410,30 @@ function CreateModal({ type, categories, close, refresh, notify }) {
         </div>
         {type === "product" && (
           <>
-            <input required placeholder="Product name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3" />
-            <input required type="number" placeholder="Price" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3" />
-            <input required type="number" placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3" />
-            <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3">
+            <input required placeholder="Product name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
+            <input required type="number" placeholder="Price (PKR)" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <input required type="number" placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm">
               {categories.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
             </select>
-            <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-3 w-full rounded border p-3" />
+            <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-3 w-full rounded border p-3 text-sm" />
           </>
         )}
         {type === "category" && (
           <>
-            <input required placeholder="Category name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3" />
-            <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3" />
+            <input required placeholder="Category name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
+            <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3 text-sm" />
           </>
         )}
         {type === "user" && (
           <>
-            <input required placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="mt-6 w-full rounded border p-3" />
-            <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-3 w-full rounded border p-3" />
-            <input required type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-3 w-full rounded border p-3" />
-            <input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-3 w-full rounded border p-3" />
+            <input required placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
+            <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <input required type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
           </>
         )}
-        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">Save</button>
+        <button className="mt-5 w-full rounded bg-slate-900 p-3 font-bold text-white">Save</button>
       </form>
     </div>
   );
@@ -476,25 +479,25 @@ function EditModal({ data, categories, close, refresh, notify }) {
         </div>
         {isProduct ? (
           <>
-            <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3" />
+            <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
             <label className="mt-3 block text-sm text-slate-500">
               Product image
               <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-1 w-full rounded border p-3 text-sm" />
             </label>
             {form.image_url && <img src={form.image_url} alt="Current product" className="mt-3 h-24 w-24 rounded object-cover" />}
-            <input required type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3" />
-            <input required type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3" />
-            <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3">
+            <input required type="number" placeholder="Price in PKR" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <input required type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
+            <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm">
               {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </>
         ) : (
           <>
-            <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3" />
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3" />
+            <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3 text-sm" />
           </>
         )}
-        <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">Save changes</button>
+        <button className="mt-5 w-full rounded bg-slate-900 p-3 font-bold text-white">Save changes</button>
       </form>
     </div>
   );
