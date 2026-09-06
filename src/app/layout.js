@@ -25,7 +25,6 @@ export default function RootLayout({ children }) {
        {children}
         <StoreSearch />
         <MobileMenu />
-        <LogoutButton />
       </body>
     </html>
   );
