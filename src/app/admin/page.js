@@ -15,9 +15,9 @@ export default function AdminPage() {
   const refresh = async () => {
     try {
       const [p, c, u] = await Promise.all([
-        fetch("/api/products", { cache: "no-store" }).then((r) => r.json()),
-        fetch("/api/categories", { cache: "no-store" }).then((r) => r.json()),
-        fetch("/api/users", { cache: "no-store" }).then((r) => (r.ok ? r.json() : []))
+        fetch("/api/products", { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])),
+        fetch("/api/categories", { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])),
+        fetch("/api/users", { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])),
       ]);
       setProducts(p);
       setCategories(c);
@@ -38,7 +38,8 @@ export default function AdminPage() {
       .then((session) => {
         setAuthorized(session.admin === true);
         if (session.admin) refresh();
-      });
+      })
+      .catch(() => setAuthorized(false));
   }, []);
 
   const login = async (event) => {
@@ -47,7 +48,7 @@ export default function AdminPage() {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: form.get("email"), password: form.get("password") })
+      body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
     });
     if (response.ok) {
       setAuthorized(true);
@@ -76,7 +77,7 @@ export default function AdminPage() {
           <h1 className="mt-3 font-serif text-4xl">Admin sign in</h1>
           <input name="email" required type="email" placeholder="Email" className="mt-8 w-full rounded border border-slate-300 p-3" />
           <input name="password" required type="password" placeholder="Password" className="mt-3 w-full rounded border border-slate-300 p-3" />
-          <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white">Sign in</button>
+          <button className="mt-5 w-full bg-slate-900 p-3 font-bold text-white rounded">Sign in</button>
           <a href="/" className="mt-4 block text-center text-sm text-slate-500">Back to store</a>
         </form>
         {notice && <p className="fixed bottom-5 right-5 rounded bg-slate-900 px-4 py-3 text-white shadow-lg">{notice}</p>}
@@ -98,31 +99,47 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(null);
 
-  const remove = async (type, id) => {
-    if (!window.confirm(`Delete this ${type}?`)) return;
-    const response = await fetch(`/api/${type}s`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    if (response.ok) {
-      await refresh();
-      notify(`${type} deleted`);
-    }
-  };
-
-  useEffect(() => {
+  const fetchTabRecords = async () => {
     const endpoint =
       tab === "Orders"
         ? "/api/orders"
         : tab === "Contacts"
         ? "/api/contact"
         : null;
-    if (endpoint)
-      fetch(endpoint)
-        .then((r) => (r.ok ? r.json() : []))
-        .then(setRecords);
+    if (endpoint) {
+      try {
+        const r = await fetch(endpoint, { cache: "no-store" });
+        if (r.ok) {
+          const data = await r.json();
+          setRecords(data);
+        } else {
+          setRecords([]);
+        }
+      } catch (err) {
+        console.error("Error fetching tab records:", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchTabRecords();
   }, [tab]);
+
+  const remove = async (type, id) => {
+    if (!window.confirm(`Delete this item?`)) return;
+    const response = await fetch(`/api/${type}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (response.ok) {
+      await refresh();
+      await fetchTabRecords();
+      notify("Item deleted successfully");
+    } else {
+      notify("Failed to delete item");
+    }
+  };
 
   const data =
     tab === "Products"
@@ -140,7 +157,7 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
           <p className="text-xs font-bold uppercase tracking-[.25em] text-lime-700">Private workspace</p>
           <h1 className="mt-2 font-serif text-5xl">Admin panel</h1>
         </div>
-        <button onClick={logout} className="rounded bg-red-500 px-4 py-2 text-sm font-bold text-white">
+        <button onClick={logout} className="rounded bg-red-500 px-4 py-2 text-sm font-bold text-white hover:bg-red-600">
           Log out
         </button>
       </div>
@@ -150,25 +167,25 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
           <button
             key={item}
             onClick={() => setTab(item)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-              tab === item ? "bg-slate-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              tab === item ? "bg-slate-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
             }`}
           >
             {item}
           </button>
         ))}
         {tab === "Products" && (
-          <button onClick={() => setCreating("product")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white">
+          <button onClick={() => setCreating("product")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700">
             + Add product
           </button>
         )}
         {tab === "Categories" && (
-          <button onClick={() => setCreating("category")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white">
+          <button onClick={() => setCreating("category")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700">
             + Add category
           </button>
         )}
         {tab === "Users" && (
-          <button onClick={() => setCreating("user")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white">
+          <button onClick={() => setCreating("user")} className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white hover:bg-lime-700">
             + Add user
           </button>
         )}
@@ -177,94 +194,120 @@ function Admin({ products, categories, users, logout, notify, refresh }) {
       <div className="mt-8 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {tab === "Orders" ? (
           <div className="min-w-[700px] divide-y divide-slate-100">
-            {records.map((item) => (
-              <div key={item.id} className="grid grid-cols-5 items-center gap-4 p-4 text-sm">
-                <div className="col-span-2 flex items-center gap-3">
-                  {item.image_url ? (
-                    <img src={item.image_url} alt="Product" className="h-12 w-12 rounded border object-cover bg-slate-50" />
-                  ) : (
-                    <div className="grid h-12 w-12 place-items-center rounded bg-slate-100 font-bold text-slate-400">P</div>
-                  )}
-                  <div>
-                    <strong className="block text-slate-900">{item.customer_name}</strong>
-                    <span className="text-xs text-slate-500">{item.items}</span>
-                    <span className="block text-[11px] text-slate-400">Ph: {item.customer_phone}</span>
+            {records.length === 0 ? (
+              <p className="p-6 text-center text-sm text-slate-500">No orders found.</p>
+            ) : (
+              records.map((item) => {
+                const currentStatus = item.status ? item.status.toLowerCase() : "pending";
+                return (
+                  <div key={item.id} className="grid grid-cols-5 items-center gap-4 p-4 text-sm">
+                    <div className="col-span-2 flex items-center gap-3">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt="Product" className="h-12 w-12 rounded border object-cover bg-slate-50" />
+                      ) : (
+                        <div className="grid h-12 w-12 place-items-center rounded bg-slate-100 font-bold text-slate-400">P</div>
+                      )}
+                      <div>
+                        <strong className="block text-slate-900">{item.customer_name}</strong>
+                        <span className="text-xs text-slate-500">{item.items}</span>
+                        <span className="block text-[11px] text-slate-400">Ph: {item.customer_phone}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="block text-xs text-slate-400">Total Price</span>
+                      <strong className="font-serif text-base text-slate-900">
+                        Rs. {Number(item.total_amount || 0).toLocaleString("en-PK")}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span className="block text-xs text-slate-400">Address</span>
+                      <p className="truncate text-xs text-slate-600">{item.shipping_address}</p>
+                    </div>
+
+                    <div>
+                      <select
+                        value={currentStatus}
+                        onChange={async (e) => {
+                          const newStatus = e.target.value;
+                          const res = await fetch("/api/orders", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: item.id, status: newStatus }),
+                          });
+                          if (res.ok) {
+                            setRecords((prev) =>
+                              prev.map((r) => (r.id === item.id ? { ...r, status: newStatus } : r))
+                            );
+                            notify("Order status updated");
+                          } else {
+                            notify("Failed to update status");
+                          }
+                        }}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold outline-none transition capitalize ${
+                          currentStatus === "completed"
+                            ? "border-green-300 bg-green-50 text-green-700"
+                            : currentStatus === "processing"
+                            ? "border-blue-300 bg-blue-50 text-blue-700"
+                            : currentStatus === "cancelled"
+                            ? "border-red-300 bg-red-50 text-red-700"
+                            : "border-yellow-300 bg-yellow-50 text-yellow-700"
+                        }`}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <span className="block text-xs text-slate-400">Total Price</span>
-                  <strong className="font-serif text-base text-slate-900">
-                    Rs. {Number(item.total_amount || 0).toLocaleString("en-PK")}
-                  </strong>
-                </div>
-
-                <div>
-                  <span className="block text-xs text-slate-400">Address</span>
-                  <p className="truncate text-xs text-slate-600">{item.shipping_address}</p>
-                </div>
-
-                <div>
-                  <select
-                    value={item.status || "Pending"}
-                    onChange={async (e) => {
-                      const newStatus = e.target.value;
-                      const res = await fetch("/api/orders", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: item.id, status: newStatus }),
-                      });
-                      if (res.ok) {
-                        setRecords(records.map((r) => (r.id === item.id ? { ...r, status: newStatus } : r)));
-                        notify("Order status updated");
-                      }
-                    }}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
-                      item.status === "Confirmed"
-                        ? "border-green-300 bg-green-50 text-green-700"
-                        : "border-yellow-300 bg-yellow-50 text-yellow-700"
-                    }`}
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Confirmed">Confirmed</option>
-                  </select>
-                </div>
-              </div>
-            ))}
+                );
+              })
+            )}
           </div>
         ) : (
           <div className="min-w-[620px] divide-y divide-slate-100">
-            {data.map((item) => (
-              <div key={item.id} className="grid grid-cols-4 items-center gap-4 p-4 text-sm">
-                <strong className="text-slate-900">
-                  {item.title || item.name || item.username || item.customer_name}
-                </strong>
-                <span className="truncate text-slate-500">
-                  {item.email || item.category || item.items || item.subject || item.description}
-                </span>
-                <span className="text-slate-500">
-                  {item.role ||
-                    item.status ||
-                    item.customer_phone ||
-                    (item.price != null
-                      ? item.price_pkr || `Rs. ${Number(item.price).toLocaleString("en-PK")}`
-                      : null) ||
-                    item.message}
-                </span>
-                {tab === "Products" && (
-                  <span className="flex justify-end gap-3 font-semibold">
-                    <button onClick={() => setEditing({ type: "product", item })} className="text-lime-700 hover:underline">Edit</button>
-                    <button onClick={() => remove("product", item.id)} className="text-red-600 hover:underline">Delete</button>
+            {data.length === 0 ? (
+              <p className="p-6 text-center text-sm text-slate-500">No records found.</p>
+            ) : (
+              data.map((item) => (
+                <div key={item.id} className="grid grid-cols-4 items-center gap-4 p-4 text-sm">
+                  <strong className="text-slate-900 truncate">
+                    {item.title || item.name || item.username || item.customer_name}
+                  </strong>
+                  <span className="truncate text-slate-500">
+                    {item.email || item.category || item.items || item.subject || item.description}
                   </span>
-                )}
-                {tab === "Categories" && (
-                  <span className="flex justify-end gap-3 font-semibold">
-                    <button onClick={() => setEditing({ type: "category", item })} className="text-lime-700 hover:underline">Edit</button>
-                    <button onClick={() => remove("categories", item.id)} className="text-red-600 hover:underline">Delete</button>
+                  <span className="text-slate-500 truncate">
+                    {item.role ||
+                      item.status ||
+                      item.customer_phone ||
+                      (item.price != null
+                        ? item.price_pkr || `Rs. ${Number(item.price).toLocaleString("en-PK")}`
+                        : null) ||
+                      item.message}
                   </span>
-                )}
-              </div>
-            ))}
+                  <span className="flex justify-end gap-3 font-semibold">
+                    {tab === "Products" && (
+                      <>
+                        <button onClick={() => setEditing({ type: "product", item })} className="text-lime-700 hover:underline">Edit</button>
+                        <button onClick={() => remove("products", item.id)} className="text-red-600 hover:underline">Delete</button>
+                      </>
+                    )}
+                    {tab === "Categories" && (
+                      <>
+                        <button onClick={() => setEditing({ type: "category", item })} className="text-lime-700 hover:underline">Edit</button>
+                        <button onClick={() => remove("categories", item.id)} className="text-red-600 hover:underline">Delete</button>
+                      </>
+                    )}
+                    {tab === "Users" && (
+                      <button onClick={() => remove("users", item.id)} className="text-red-600 hover:underline">Delete</button>
+                    )}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
@@ -288,7 +331,6 @@ function CreateModal({ type, categories, close, refresh, notify }) {
     event.preventDefault();
     let payload = { ...form };
 
-    // Multiple Images Upload Loop
     if (type === "product" && form.images?.length > 0) {
       const uploadedUrls = [];
       for (const file of form.images) {
@@ -333,7 +375,7 @@ function CreateModal({ type, categories, close, refresh, notify }) {
               {categories.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
             </select>
             <label className="mt-3 block text-xs font-semibold text-slate-600">
-              Select Product Images (Multiple Supported)
+              Select Product Images
               <input type="file" accept="image/*" multiple onChange={(e) => setForm({ ...form, images: Array.from(e.target.files) })} className="mt-1 w-full rounded border p-3 text-sm" />
             </label>
           </>
@@ -377,7 +419,6 @@ function EditModal({ data, categories, close, refresh, notify }) {
     event.preventDefault();
     let finalUrls = [...(form.existing_urls || [])];
 
-    // Upload New Images if selected
     if (isProduct && form.new_images?.length > 0) {
       for (const file of form.new_images) {
         const uploadData = new FormData();
@@ -424,7 +465,6 @@ function EditModal({ data, categories, close, refresh, notify }) {
           <>
             <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
             
-            {/* Existing Images Preview */}
             {form.existing_urls?.length > 0 && (
               <div className="mt-3">
                 <span className="block text-xs font-semibold text-slate-500">Current Images:</span>
