@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-const tabs = ["Products", "Categories", "Users", "Orders", "Contacts"];
-
 export default function Home() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -11,6 +9,7 @@ export default function Home() {
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -111,14 +110,27 @@ export default function Home() {
         )}
       </header>
 
-      <Store products={pageProducts} page={page} pageCount={pageCount} setPage={setPage} />
+      <Store 
+        products={pageProducts} 
+        page={page} 
+        pageCount={pageCount} 
+        setPage={setPage} 
+        onBuy={(product) => setSelectedProduct(product)}
+      />
+
+      {selectedProduct && (
+        <CheckoutModal 
+          product={selectedProduct} 
+          close={() => setSelectedProduct(null)} 
+        />
+      )}
 
       <Footer />
     </main>
   );
 }
 
-function Store({ products, page, pageCount, setPage }) {
+function Store({ products, page, pageCount, setPage, onBuy }) {
   return (
     <>
       <section className="bg-lime-100 px-5 py-24">
@@ -144,39 +156,42 @@ function Store({ products, page, pageCount, setPage }) {
 
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {products.map((product) => (
-            <a
-              href={`/product/${product.id}`}
+            <div
               key={product.id}
-              className="border border-slate-200 bg-white p-3 transition hover:-translate-y-1 hover:shadow-lg"
+              className="flex flex-col justify-between border border-slate-200 bg-white p-3 transition hover:-translate-y-1 hover:shadow-lg"
             >
-              <div className="grid aspect-square place-items-center overflow-hidden bg-slate-100">
-                {product.image_url ? (
-                  <img
-                    src={product.image_url}
-                    alt={product.title}
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <span className="font-serif text-6xl text-slate-400">
-                    {product.title ? product.title[0] : "P"}
+              <div>
+                <div className="grid aspect-square place-items-center overflow-hidden bg-slate-100">
+                  {product.image_url ? (
+                    <img
+                      src={product.image_url}
+                      alt={product.title}
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <span className="font-serif text-6xl text-slate-400">
+                      {product.title ? product.title[0] : "P"}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-4 text-xs text-slate-500">{product.category}</p>
+                <h3 className="font-semibold">{product.title}</h3>
+                <div className="mt-4 flex items-center justify-between">
+                  <strong className="font-serif text-lg text-slate-900">
+                    Rs. {Number(product.price || 0).toLocaleString("en-PK")}
+                  </strong>
+                  <span className="text-xs text-lime-700">
+                    {product.stock} in stock
                   </span>
-                )}
+                </div>
               </div>
-              <p className="mt-4 text-xs text-slate-500">{product.category}</p>
-              <h3 className="font-semibold">{product.title}</h3>
-              <div className="mt-4 flex items-center justify-between">
-                {/* Updated: Display PKR currency */}
-                <strong className="font-serif text-lg text-slate-900">
-                  Rs. {Number(product.price || 0).toLocaleString("en-PK")}
-                </strong>
-                <span className="text-xs text-lime-700">
-                  {product.stock} in stock
-                </span>
-              </div>
-              <span className="mt-4 block bg-slate-900 px-4 py-3 text-center text-xs font-bold text-white">
-                View and buy
-              </span>
-            </a>
+              <button
+                onClick={() => onBuy(product)}
+                className="mt-4 block w-full bg-slate-900 px-4 py-3 text-center text-xs font-bold text-white hover:bg-slate-800 transition"
+              >
+                Buy now
+              </button>
+            </div>
           ))}
         </div>
 
@@ -206,6 +221,215 @@ function Store({ products, page, pageCount, setPage }) {
   );
 }
 
+function OrderProgressBar({ status = "pending" }) {
+  const steps = [
+    { id: "pending", label: "Order Placed" },
+    { id: "processing", label: "Processing" },
+    { id: "completed", label: "Delivered" },
+  ];
+
+  const getStepIndex = (currentStatus) => {
+    switch (currentStatus?.toLowerCase()) {
+      case "pending":
+        return 0;
+      case "processing":
+        return 1;
+      case "completed":
+        return 2;
+      default:
+        return 0;
+    }
+  };
+
+  const currentIndex = getStepIndex(status);
+
+  return (
+    <div className="w-full my-8 px-2">
+      <div className="relative flex items-center justify-between">
+        <div className="absolute left-0 top-1/2 -z-0 h-1 w-full -translate-y-1/2 bg-slate-200" />
+        <div
+          className="absolute left-0 top-1/2 -z-0 h-1 -translate-y-1/2 bg-lime-600 transition-all duration-500"
+          style={{
+            width: `${(currentIndex / (steps.length - 1)) * 100}%`,
+          }}
+        />
+
+        {steps.map((step, index) => {
+          const isDone = index <= currentIndex;
+          return (
+            <div key={step.id} className="flex flex-col items-center bg-white px-2 z-10">
+              <div
+                className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold transition-all ${
+                  isDone
+                    ? "bg-lime-600 text-white ring-4 ring-lime-100"
+                    : "bg-slate-200 text-slate-500"
+                }`}
+              >
+                {index + 1}
+              </div>
+              <span
+                className={`mt-2 text-xs font-semibold ${
+                  isDone ? "text-slate-900" : "text-slate-400"
+                }`}
+              >
+                {step.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CheckoutModal({ product, close }) {
+  const [loading, setLoading] = useState(false);
+  const [submittedOrder, setSubmittedOrder] = useState(null);
+  const [formData, setFormData] = useState({
+    customer_name: "",
+    customer_email: "",
+    customer_phone: "",
+    shipping_address: "",
+    quantity: 1,
+  });
+
+  const handleOrderSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          product_id: product.id,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSubmittedOrder({ id: data.id, status: "pending" });
+      } else {
+        alert("Failed to submit order. Please check available stock.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong while placing your order.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-5 overflow-y-auto">
+      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 className="font-serif text-2xl font-bold">
+            {submittedOrder ? "Order Submitted!" : `Order ${product.title}`}
+          </h2>
+          <button onClick={close} className="text-2xl font-bold text-slate-400 hover:text-slate-600">
+            ×
+          </button>
+        </div>
+
+        {submittedOrder ? (
+          <div className="py-4 text-center">
+            <p className="text-sm text-slate-600">
+              Thank you for your order! Your Order ID is <strong>#{submittedOrder.id}</strong>.
+            </p>
+
+            <OrderProgressBar status={submittedOrder.status} />
+
+            <div className="mt-6 rounded-lg bg-stone-50 p-4 text-left text-xs text-slate-600 space-y-2">
+              <p><strong>Name:</strong> {formData.customer_name}</p>
+              <p><strong>Phone:</strong> {formData.customer_phone}</p>
+              <p><strong>Address:</strong> {formData.shipping_address}</p>
+              <p><strong>Total Amount:</strong> Rs. {(product.price * formData.quantity).toLocaleString("en-PK")}</p>
+            </div>
+
+            <button
+              onClick={close}
+              className="mt-6 w-full rounded-lg bg-slate-900 py-3 font-bold text-white transition hover:bg-slate-800"
+            >
+              Continue Shopping
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleOrderSubmit} className="mt-4 space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Full Name</label>
+              <input
+                required
+                placeholder="Enter your name"
+                value={formData.customer_name}
+                onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                className="w-full rounded border border-slate-300 p-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Email Address</label>
+              <input
+                required
+                type="email"
+                placeholder="Enter your email"
+                value={formData.customer_email}
+                onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+                className="w-full rounded border border-slate-300 p-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Phone Number</label>
+              <input
+                required
+                placeholder="03XXXXXXXXX"
+                value={formData.customer_phone}
+                onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+                className="w-full rounded border border-slate-300 p-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Shipping Address</label>
+              <textarea
+                required
+                placeholder="Complete address with city"
+                value={formData.shipping_address}
+                onChange={(e) => setFormData({ ...formData, shipping_address: e.target.value })}
+                className="w-full rounded border border-slate-300 p-2.5 text-sm min-h-20"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <label className="text-xs text-slate-600 font-semibold">Quantity:</label>
+              <input
+                type="number"
+                min="1"
+                max={product.stock}
+                value={formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                className="w-24 rounded border border-slate-300 p-2 text-sm text-center font-bold"
+              />
+            </div>
+
+            <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500">Total Price:</span>
+              <strong className="font-serif text-lg text-slate-900">
+                Rs. {(product.price * formData.quantity).toLocaleString("en-PK")}
+              </strong>
+            </div>
+
+            <button
+              disabled={loading}
+              className="mt-4 w-full rounded-lg bg-lime-600 py-3 font-bold text-white transition hover:bg-lime-700 disabled:opacity-50"
+            >
+              {loading ? "Placing Order..." : "Confirm & Place Order"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-white px-5 py-10">
@@ -217,288 +441,5 @@ function Footer() {
         <span>© 2026 MobiKiosk</span>
       </div>
     </footer>
-  );
-}
-
-export function Admin({ products, categories, users, logout, notify, refresh }) {
-  const [tab, setTab] = useState("Products");
-  const [records, setRecords] = useState([]);
-  const [editing, setEditing] = useState(null);
-  const [creating, setCreating] = useState(null);
-
-  const remove = async (type, id) => {
-    if (!window.confirm(`Delete this ${type}?`)) return;
-    const response = await fetch(`/api/${type}s`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    if (response.ok) {
-      await refresh();
-      notify(`${type} deleted`);
-    }
-  };
-
-  useEffect(() => {
-    const endpoint =
-      tab === "Orders"
-        ? "/api/orders"
-        : tab === "Contacts"
-        ? "/api/contact"
-        : null;
-    if (endpoint)
-      fetch(endpoint)
-        .then((r) => (r.ok ? r.json() : []))
-        .then(setRecords);
-  }, [tab]);
-
-  const data =
-    tab === "Products"
-      ? products
-      : tab === "Categories"
-      ? categories
-      : tab === "Users"
-      ? users
-      : records;
-
-  return (
-    <section className="mx-auto max-w-7xl px-5 py-12">
-      <div className="flex items-end justify-between border-b border-slate-200 pb-8">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.25em] text-lime-700">
-            Private workspace
-          </p>
-          <h1 className="mt-2 font-serif text-5xl">Admin panel</h1>
-        </div>
-        <button
-          onClick={logout}
-          className="rounded bg-red-500 px-4 py-2 text-sm font-bold text-white"
-        >
-          Log out
-        </button>
-      </div>
-
-      <div className="mt-8 flex flex-wrap items-center gap-2">
-        {tabs.map((item) => (
-          <button
-            key={item}
-            onClick={() => setTab(item)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-              tab === item
-                ? "bg-slate-900 text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-200"
-            }`}
-          >
-            {item}
-          </button>
-        ))}
-        {tab === "Products" && (
-          <button
-            onClick={() => setCreating("product")}
-            className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white"
-          >
-            + Add product
-          </button>
-        )}
-        {tab === "Categories" && (
-          <button
-            onClick={() => setCreating("category")}
-            className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white"
-          >
-            + Add category
-          </button>
-        )}
-        {tab === "Users" && (
-          <button
-            onClick={() => setCreating("user")}
-            className="ml-auto rounded-lg bg-lime-600 px-4 py-2 text-sm font-bold text-white"
-          >
-            + Add user
-          </button>
-        )}
-      </div>
-
-      <div className="mt-8 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <div className="min-w-[620px] divide-y divide-slate-100">
-          {data.map((item) => (
-            <div key={item.id} className="grid grid-cols-4 gap-4 p-4 text-sm">
-              <strong>
-                {item.title || item.name || item.username || item.customer_name}
-              </strong>
-              <span className="text-slate-500">
-                {item.email ||
-                  item.category ||
-                  item.items ||
-                  item.subject ||
-                  item.description}
-              </span>
-              <span className="text-slate-500">
-                {item.role ||
-                  item.status ||
-                  item.customer_phone ||
-                  (item.price != null
-                    ? `Rs. ${Number(item.price).toLocaleString("en-PK")}`
-                    : null) ||
-                  item.message}
-              </span>
-              {tab === "Products" && (
-                <span className="flex gap-2">
-                  <button onClick={() => setEditing({ type: "product", item })} className="text-lime-700 font-semibold">Edit</button>
-                  <button onClick={() => remove("product", item.id)} className="text-red-600 font-semibold">Delete</button>
-                </span>
-              )}
-              {tab === "Categories" && (
-                <span className="flex gap-2">
-                  <button onClick={() => setEditing({ type: "category", item })} className="text-lime-700 font-semibold">Edit</button>
-                  <button onClick={() => remove("categories", item.id)} className="text-red-600 font-semibold">Delete</button>
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-      {creating && <CreateModal type={creating} categories={categories} close={() => setCreating(null)} refresh={refresh} notify={notify} />}
-      {editing && <EditModal data={editing} categories={categories} close={() => setEditing(null)} refresh={refresh} notify={notify} />}
-    </section>
-  );
-}
-
-function CreateModal({ type, categories, close, refresh, notify }) {
-  const [form, setForm] = useState(
-    type === "product"
-      ? { title: "", price: "", stock: 0, category_id: categories[0]?.id || "", image: null }
-      : type === "category"
-      ? { name: "", description: "" }
-      : { username: "", email: "", password: "", address: "" }
-  );
-
-  const save = async (event) => {
-    event.preventDefault();
-    let payload = { ...form };
-    if (type === "product" && form.image) {
-      const data = new FormData();
-      data.append("image", form.image);
-      const upload = await fetch("/api/uploads", { method: "POST", body: data });
-      if (!upload.ok) return notify("Image upload failed");
-      payload.image_url = (await upload.json()).url;
-      delete payload.image;
-    }
-    const endpoint =
-      type === "product"
-        ? "/api/products"
-        : type === "category"
-        ? "/api/categories"
-        : "/api/users";
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (response.ok) {
-      await refresh();
-      close();
-      notify(`${type} added`);
-    } else notify("Could not save record");
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/60 p-5">
-      <form onSubmit={save} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <h2 className="font-serif text-3xl">Add {type}</h2>
-          <button type="button" onClick={close} className="text-2xl">×</button>
-        </div>
-        {type === "product" && (
-          <>
-            <input required placeholder="Product name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
-            <input required type="number" placeholder="Price (PKR)" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
-            <input required type="number" placeholder="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
-            <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm">
-              {categories.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
-            </select>
-            <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-3 w-full rounded border p-3 text-sm" />
-          </>
-        )}
-        {type === "category" && (
-          <>
-            <input required placeholder="Category name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
-            <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3 text-sm" />
-          </>
-        )}
-        {type === "user" && (
-          <>
-            <input required placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
-            <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
-            <input required type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
-            <input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
-          </>
-        )}
-        <button className="mt-5 w-full rounded bg-slate-900 p-3 font-bold text-white">Save</button>
-      </form>
-    </div>
-  );
-}
-
-function EditModal({ data, categories, close, refresh, notify }) {
-  const isProduct = data.type === "product";
-  const [form, setForm] = useState(
-    isProduct
-      ? { title: data.item.title, price: data.item.price, stock: data.item.stock, category_id: categories.find((item) => item.name === data.item.category)?.id || "", image_url: data.item.image_url || "", image: null }
-      : { name: data.item.name, description: data.item.description || "" }
-  );
-
-  const save = async (event) => {
-    event.preventDefault();
-    let image_url = form.image_url;
-    if (isProduct && form.image) {
-      const uploadData = new FormData();
-      uploadData.append("image", form.image);
-      const upload = await fetch("/api/uploads", { method: "POST", body: uploadData });
-      if (!upload.ok) { notify("Image upload failed"); return; }
-      image_url = (await upload.json()).url;
-    }
-    const payload = isProduct ? { id: data.item.id, ...form, image_url } : { id: data.item.id, ...form };
-    const response = await fetch(isProduct ? "/api/products" : "/api/categories", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (response.ok) {
-      await refresh();
-      close();
-      notify("Record updated");
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/60 p-5">
-      <form onSubmit={save} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <h2 className="font-serif text-3xl">Edit {isProduct ? "product" : "category"}</h2>
-          <button type="button" onClick={close} className="text-2xl">×</button>
-        </div>
-        {isProduct ? (
-          <>
-            <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
-            <label className="mt-3 block text-sm text-slate-500">
-              Product image
-              <input type="file" accept="image/*" onChange={(e) => setForm({ ...form, image: e.target.files[0] })} className="mt-1 w-full rounded border p-3 text-sm" />
-            </label>
-            {form.image_url && <img src={form.image_url} alt="Current product" className="mt-3 h-24 w-24 rounded object-cover" />}
-            <input required type="number" placeholder="Price in PKR" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
-            <input required type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm" />
-            <select required value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="mt-3 w-full rounded border p-3 text-sm">
-              {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          </>
-        ) : (
-          <>
-            <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-6 w-full rounded border p-3 text-sm" />
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-3 min-h-24 w-full rounded border p-3 text-sm" />
-          </>
-        )}
-        <button className="mt-5 w-full rounded bg-slate-900 p-3 font-bold text-white">Save changes</button>
-      </form>
-    </div>
   );
 }
